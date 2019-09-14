@@ -1,0 +1,38 @@
+function findPiece(pieceClass) {
+   const board = document.getElementsByTagName('cg-board')[0];
+   const pieces = board.getElementsByTagName('piece');
+   for(let p of pieces) { 
+     if(p.classList.value == pieceClass) {
+       return p;
+     }
+   }
+}
+
+
+async function initLichess() {
+  const timeout = 20000;
+  let curWait = 0;
+  while(curWait < timeout && document.getElementsByTagName('piece').length == 0) {
+    await delay(100);
+    curWait += 100;
+  }
+  return document.getElementsByTagName('piece').length >= 0;
+}
+
+async function delay(ms) {
+  return await new Promise(resolve => setTimeout(resolve, ms));
+}
+
+chrome.extension.sendMessage({}, function(response) {
+  let readyStateCheckInterval = setInterval(async function() {
+      if (document.readyState === "complete") {
+        clearInterval(readyStateCheckInterval);
+        await initLichess();
+        const p = findPiece('white king');
+	const garfield = "https://cdn160.picsart.com/upscale-272578841007211.png";
+	p.style.backgroundImage = `url('${garfield}')`;
+	 
+	debugger;
+      }
+    }, 10);
+});
