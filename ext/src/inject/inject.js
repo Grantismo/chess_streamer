@@ -32,7 +32,7 @@ async function delay (ms) {
 async function setStyle (adapter) {
   const status = await adapter.init();
   if (status) {
-    const matcher = adapter.newMatcher().addColor(Color.WHITE).addPiece(Piece.PAWN);
+    const matcher = adapter.newMatcher().addCoord('e1');
     const els = await adapter.findElements(matcher);
     if (els.length == 0) {
       console.log('could not find piece');
@@ -40,7 +40,6 @@ async function setStyle (adapter) {
     }
     const garfield = 'https://cdn160.picsart.com/upscale-272578841007211.png';
     for(let i = 0; i < els.length; i++) {
-      debugger;
       els[i].style.backgroundImage = `url('${garfield}')`;
     }
   } else {
@@ -113,8 +112,8 @@ class LichessMatcher extends PieceMatcher {
   }
 
   matchCoord(element, coord) {
-    //TODO
-    throw new Error('no implementation.');
+    // TODO using math
+    return false;
   }
 }
 
@@ -151,11 +150,12 @@ chrome.extension.sendMessage({}, function (response) {
   const readyStateCheckInterval = setInterval(async function () {
     if (document.readyState === 'complete') {
       clearInterval(readyStateCheckInterval);
-      setStyle(adapter);
-
-      window.addEventListener('resize', () => {
-        setStyle(adapater);
+      window.addEventListener('resize', async () => {
+        await delay(50); // causes flickering on resize, but if too low may not refresh.
+        setStyle(adapter);
       });
+
+      setStyle(adapter);
     }
   }, 10);
 });
