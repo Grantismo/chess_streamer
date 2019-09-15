@@ -5,12 +5,12 @@ const Color = {
 };
 
 const Piece = {
-  KING: 'k',
-  QUEEN: 'q',
-  ROOK: 'r',
-  KNIGHT: 'n',
-  BISHOP: 'b',
-  PAWN: 'p',
+  KING: 'king',
+  QUEEN: 'queen',
+  ROOK: 'rook',
+  KNIGHT: 'knight',
+  BISHOP: 'bishop',
+  PAWN: 'pawn',
 };
 
 const coordRegex = /[a-h][1-8]/;
@@ -32,14 +32,17 @@ async function delay (ms) {
 async function setStyle (adapter) {
   const status = await adapter.init();
   if (status) {
-    const macher = new PieceMatcher().addColor(Color.WHITE).addPiece(Piece.KING);
-    const el = await adapter.findElements(matcher);
-    if (!el) {
+    const matcher = adapter.newMatcher().addColor(Color.WHITE).addPiece(Piece.PAWN);
+    const els = await adapter.findElements(matcher);
+    if (els.length == 0) {
       console.log('could not find piece');
       return;
     }
     const garfield = 'https://cdn160.picsart.com/upscale-272578841007211.png';
-    el.style.backgroundImage = `url('${garfield}')`;
+    for(let i = 0; i < els.length; i++) {
+      debugger;
+      els[i].style.backgroundImage = `url('${garfield}')`;
+    }
   } else {
     console.log('timeout waiting for init');
   }
@@ -65,8 +68,55 @@ class PieceMatcher {
     this.coords.push(coord);
     return this;
   }
+
+  match(element) {
+    for(const p of this.pieces) {
+      if(!this.matchPiece(element, p)) {
+        return false;
+      }
+    }
+
+    for(const c of this.colors) {
+      if(!this.matchColor(element, c)) {
+        return false;
+      }
+    }
+
+    for(const c of this.coords) {
+      if(!this.matchCoord(element, c)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  matchColor(color) {
+    throw new Error('no implementation.');
+  }
+
+  matchPiece(piece) {
+    throw new Error('no implementation.');
+  }
+
+  matchCoord(coord) {
+    throw new Error('no implementation.');
+  }
 }
 
+class LichessMatcher extends PieceMatcher {
+  matchColor(element, color) {
+    return element.classList.contains(color);
+  }
+
+  matchPiece(element, piece) {
+    return element.classList.contains(piece);
+  }
+
+  matchCoord(element, coord) {
+    //TODO
+    throw new Error('no implementation.');
+  }
+}
 
 // Site Specific Adapters
 class LichessAdapater {
@@ -82,50 +132,19 @@ class LichessAdapater {
       console.log('no pieces found');
     }
     for (const p of pieces) {
-      if (this.match(p, matcher)) {
-        matches.push(p)
-        return p;
+      if (matcher.match(p)) {
+        matches.push(p);
       }
     }
     return matches;
   }
 
-  async match(element, matcher) {
-    for(const p of matcher.pieces) {
-      if(!this.matchPiece(element, p) {
-        return false;
-      }
-    }
-
-    for(const c of matcher.colors) {
-      if(!this.matchColor(element, c) {
-        return false;
-      }
-    }
-
-    for(const c of matcher.coords) {
-      if(!this.matchCoord(element, c) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  async matchColor(element, color) {
-    return false;
-  }
-
-  async matchPiece(element, piece) {
-    //.classList.value === pieceClass
-    return false;
-  }
-
-  async matchCoord(element, coord) {
-    //TODO
-    return false;
+  newMatcher() {
+    return new LichessMatcher;
   }
 
 }
+
 // Main
 chrome.extension.sendMessage({}, function (response) {
   const adapter = new LichessAdapater();
