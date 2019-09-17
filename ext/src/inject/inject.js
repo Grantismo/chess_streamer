@@ -13,7 +13,6 @@ const Piece = {
   PAWN: 'pawn',
 };
 
-const coordRegex = /[a-h][1-8]/;
 
 // Utilities
 async function waitWithTimeout(predicate, timeout=20000, waitDuration=100) {
@@ -28,25 +27,6 @@ async function waitWithTimeout(predicate, timeout=20000, waitDuration=100) {
 async function delay (ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-
-async function setStyle (adapter) {
-  const status = await adapter.init();
-  if (status) {
-    const matcher = adapter.newMatcher().addCoord('e1');
-    const els = await adapter.findElements(matcher);
-    if (els.length == 0) {
-      console.log('could not find piece');
-      return;
-    }
-    const garfield = 'https://cdn160.picsart.com/upscale-272578841007211.png';
-    for(let i = 0; i < els.length; i++) {
-      els[i].style.backgroundImage = `url('${garfield}')`;
-    }
-  } else {
-    console.log('timeout waiting for init');
-  }
-}
-
 
 class PieceMatcher {
   pieces = [];
@@ -117,6 +97,64 @@ class LichessMatcher extends PieceMatcher {
   }
 }
 
+const coordRegex = /^[a-h][1-8]$/;
+function newPieceMatcher(text) {
+  const parts = text.split(/\s+/); // white knight f3
+  const matcher = new PieceMatcher();
+  for(let i = 0; i < parts.length; i++){
+    if(Object.values(Color).indexOf(parts[i]) > -1) {
+      matcher.addColor(parts[i]);
+    if(Object.values(Piece).indexOf(parts[i]) > -1) {
+      matcher.addPiece(parts[i]);
+    } else if (coordRegex.test(parts[i])) {
+      matcher.addCoord(parts[i]);
+    }
+  }
+  return matcher;
+}
+
+
+class PieceReplacer { 
+  constructor(matcher, image) {
+    this.matcher = matcher;
+    this.image = image;
+  }
+
+  async apply(adapter) {
+    const status = await adapter.init();
+    if (status) {
+      const els = await adapter.findElements(this.matcher);
+      if (els.length == 0) {
+        console.log('could not find piece');
+        return;
+      }
+      for(let i = 0; i < els.length; i++) {
+        els[i].style.backgroundImage = `url('${this.image}')`;
+      }
+    } else {
+      console.log('timeout waiting for init');
+    }
+  }
+}
+
+function parseText (text) {
+  const lines = text.split("\n");
+  const replacements = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = text.split("\n");
+    if(line.length == 2){
+      const match = newPieceMatcher(line[0]);
+      const image = line[1];
+      const replacer = PieceReplacer(matcher, image);
+      replacements.push(replacer);
+    } else {
+      console.log('unexpected line length');
+    }
+  }
+  return replacements;
+}
+
+
 // Site Specific Adapters
 class LichessAdapater {
   async init () {
@@ -142,20 +180,33 @@ class LichessAdapater {
     return new LichessMatcher;
   }
 
+  async apply(replacements) {
+    for (let i = 0; i < replacements; i++) {
+      await replacements[i].apply(this);
+    }
+  }
 }
 
 // Main
 chrome.extension.sendMessage({}, function (response) {
-  const adapter = new LichessAdapater();
-  const readyStateCheckInterval = setInterval(async function () {
-    if (document.readyState === 'complete') {
-      clearInterval(readyStateCheckInterval);
-      window.addEventListener('resize', async () => {
-        await delay(50); // causes flickering on resize, but if too low may not refresh.
-        setStyle(adapter);
-      });
+});
 
-      setStyle(adapter);
-    }
-  }, 10);
+
+
+
+setStyle(adapter);
+
+const adapter = new LichessAdapater();
+chrome.runtime.onMessage.addListener(async function(request, sender, sendResponse) {
+  if(request.text.length > 0) {
+    const replacements = parseText(request.text);
+    adapter.apply(replacements);
+
+    window.addEventListener('resize', async () => {
+      await delay(50); // causes flickering on resize, but if too low may not refresh.
+      adapter.apply(replacements);
+    });
+  } else {
+    console.log('no replacements found');
+  }
 });
