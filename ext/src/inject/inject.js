@@ -1,7 +1,7 @@
 // Piece Enums
 const Color = {
   BLACK: 'black',
-  WHITE: 'white',
+  WHITE: 'white'
 };
 
 const Piece = {
@@ -10,12 +10,11 @@ const Piece = {
   ROOK: 'rook',
   KNIGHT: 'knight',
   BISHOP: 'bishop',
-  PAWN: 'pawn',
+  PAWN: 'pawn'
 };
 
-
 // Utilities
-async function waitWithTimeout(predicate, timeout=20000, waitDuration=100) {
+async function waitWithTimeout (predicate, timeout = 20000, waitDuration = 100) {
   let curWait = 0;
   while (curWait < timeout && !predicate()) {
     await delay(waitDuration);
@@ -29,82 +28,83 @@ async function delay (ms) {
 }
 
 class PieceMatcher {
-  pieces = [];
-  colors = [];
-  coords = [];
+  constructor () {
+    this.pieces = [];
+    this.colors = [];
+    this.coords = [];
+  }
 
-  addPiece(piece) {
+  addPiece (piece) {
     this.pieces.push(piece);
     return this;
   }
 
-  addColor(color) {
+  addColor (color) {
     this.colors.push(color);
     return this;
   }
 
-  addCoord(coord) {
+  addCoord (coord) {
     this.coords.push(coord);
     return this;
   }
 
-  match(element) {
-    for(const p of this.pieces) {
-      if(!this.matchPiece(element, p)) {
+  match (element) {
+    for (const p of this.pieces) {
+      if (!this.matchPiece(element, p)) {
         return false;
       }
     }
 
-    for(const c of this.colors) {
-      if(!this.matchColor(element, c)) {
+    for (const c of this.colors) {
+      if (!this.matchColor(element, c)) {
         return false;
       }
     }
 
-    for(const c of this.coords) {
-      if(!this.matchCoord(element, c)) {
+    for (const c of this.coords) {
+      if (!this.matchCoord(element, c)) {
         return false;
       }
     }
     return true;
   }
 
-  matchColor(color) {
+  matchColor (color) {
     throw new Error('no implementation.');
   }
 
-  matchPiece(piece) {
+  matchPiece (piece) {
     throw new Error('no implementation.');
   }
 
-  matchCoord(coord) {
+  matchCoord (coord) {
     throw new Error('no implementation.');
   }
 }
 
 class LichessMatcher extends PieceMatcher {
-  matchColor(element, color) {
+  matchColor (element, color) {
     return element.classList.contains(color);
   }
 
-  matchPiece(element, piece) {
+  matchPiece (element, piece) {
     return element.classList.contains(piece);
   }
 
-  matchCoord(element, coord) {
+  matchCoord (element, coord) {
     // TODO using math
     return false;
   }
 }
 
 const coordRegex = /^[a-h][1-8]$/;
-function newPieceMatcher(text) {
+function initMatcherFromLine (matcher, text) {
   const parts = text.split(/\s+/); // white knight f3
-  const matcher = new PieceMatcher();
-  for(let i = 0; i < parts.length; i++){
-    if(Object.values(Color).indexOf(parts[i]) > -1) {
+  for (let i = 0; i < parts.length; i++) {
+    if (Object.values(Color).indexOf(parts[i]) > -1) {
       matcher.addColor(parts[i]);
-    if(Object.values(Piece).indexOf(parts[i]) > -1) {
+    } if (Object.values(Piece).indexOf(parts[i]) > -1) {
       matcher.addPiece(parts[i]);
     } else if (coordRegex.test(parts[i])) {
       matcher.addCoord(parts[i]);
@@ -113,22 +113,21 @@ function newPieceMatcher(text) {
   return matcher;
 }
 
-
-class PieceReplacer { 
-  constructor(matcher, image) {
+class PieceReplacer {
+  constructor (matcher, image) {
     this.matcher = matcher;
     this.image = image;
   }
 
-  async apply(adapter) {
+  async apply (adapter) {
     const status = await adapter.init();
     if (status) {
       const els = await adapter.findElements(this.matcher);
-      if (els.length == 0) {
+      if (els.length === 0) {
         console.log('could not find piece');
         return;
       }
-      for(let i = 0; i < els.length; i++) {
+      for (let i = 0; i < els.length; i++) {
         els[i].style.backgroundImage = `url('${this.image}')`;
       }
     } else {
@@ -137,15 +136,15 @@ class PieceReplacer {
   }
 }
 
-function parseText (text) {
-  const lines = text.split("\n");
+function parseText (adapter, text) {
+  const lines = text.split('\n');
   const replacements = [];
   for (let i = 0; i < lines.length; i++) {
-    const line = text.split("\n");
-    if(line.length == 2){
-      const match = newPieceMatcher(line[0]);
+    const line = text.split(',');
+    if (line.length === 2) {
+      const match = adapter.newMatcher(line[0]);
       const image = line[1];
-      const replacer = PieceReplacer(matcher, image);
+      const replacer = new PieceReplacer(match, image);
       replacements.push(replacer);
     } else {
       console.log('unexpected line length');
@@ -154,10 +153,10 @@ function parseText (text) {
   return replacements;
 }
 
-
 // Site Specific Adapters
 class LichessAdapater {
   async init () {
+    console.log('init');
     return waitWithTimeout(() => document.getElementsByTagName('piece').length > 0);
   }
 
@@ -165,7 +164,7 @@ class LichessAdapater {
     const board = document.getElementsByTagName('cg-board')[0];
     const pieces = board.getElementsByTagName('piece');
     const matches = [];
-    if(pieces.length == 0) {
+    if (pieces.length === 0) {
       console.log('no pieces found');
     }
     for (const p of pieces) {
@@ -176,35 +175,31 @@ class LichessAdapater {
     return matches;
   }
 
-  newMatcher() {
-    return new LichessMatcher;
-  }
-
-  async apply(replacements) {
-    for (let i = 0; i < replacements; i++) {
+  async apply (replacements) {
+    for (let i = 0; i < replacements.length; i++) {
       await replacements[i].apply(this);
     }
   }
+
+  newMatcher (line) {
+    return initMatcherFromLine(new LichessMatcher(), line);
+  }
+
 }
 
 // Main
-chrome.extension.sendMessage({}, function (response) {
-});
-
-
-
-
-setStyle(adapter);
+chrome.extension.sendMessage({}, function (response) {}); // notify background of ready state.
 
 const adapter = new LichessAdapater();
-chrome.runtime.onMessage.addListener(async function(request, sender, sendResponse) {
-  if(request.text.length > 0) {
-    const replacements = parseText(request.text);
-    adapter.apply(replacements);
+chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
+  if (request.text.length > 0) {
+    const replacements = parseText(adapter, request.text);
+    await adapter.apply(replacements);
+    console.log('replacements applied!');
 
     window.addEventListener('resize', async () => {
       await delay(50); // causes flickering on resize, but if too low may not refresh.
-      adapter.apply(replacements);
+      await adapter.apply(replacements);
     });
   } else {
     console.log('no replacements found');
