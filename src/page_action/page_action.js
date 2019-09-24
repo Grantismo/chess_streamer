@@ -6,11 +6,15 @@ function sendText () {
   });
 }
 
+function reset () {
+    chrome.storage.sync.set({text: ''}, function() {});
+}
+
 chrome.storage.sync.get(["text"], function(result) {
-  console.log(result.text);
   if (result.text.length > 0) {
     document.getElementById('text').value = result.text;
   }
 });
 
 document.getElementById('apply').addEventListener('click', sendText);
+document.getElementById('reset').addEventListener('click', reset);

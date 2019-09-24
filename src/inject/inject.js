@@ -99,9 +99,12 @@ class LichessMatcher extends PieceMatcher {
 }
 
 const coordRegex = /^[a-h][1-8]$/;
-function initMatcherFromLine (matcher, text) {
-  const parts = text.split(/\s+/); // white knight f3
+function initMatcherFromLine (matcher, text, whiteOrientation) {
+  const parts = text.split(/\s+/); // "white knight f3"
   for (let i = 0; i < parts.length; i++) {
+    if (parts[i] === "us" || parts[i] === "them") {
+      matcher.addColor(((parts[i] === "us") === whiteOrientation) ? "white" : "black")
+    } 
     if (Object.values(Color).indexOf(parts[i]) > -1) {
       matcher.addColor(parts[i]);
     } if (Object.values(Piece).indexOf(parts[i]) > -1) {
@@ -175,6 +178,11 @@ class LichessAdapater {
     return matches;
   }
 
+  whiteOrientation () {
+    const wrapper = document.getElementsByTagName('cg-board')[0].closest('.cg-wrap');
+    return wrapper.classList.contains('orientation-white');
+  }
+
   async apply (replacements) {
     for (let i = 0; i < replacements.length; i++) {
       await replacements[i].apply(this);
@@ -182,18 +190,14 @@ class LichessAdapater {
   }
 
   newMatcher (line) {
-    return initMatcherFromLine(new LichessMatcher(), line);
+    return initMatcherFromLine(new LichessMatcher(), line, this.whiteOrientation());
   }
 
 }
 
-// Main
-chrome.extension.sendMessage({}, function (response) {}); // notify background of ready state.
-
-const adapter = new LichessAdapater();
-chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
-  if (request.text.length > 0) {
-    const replacements = parseText(adapter, request.text);
+async function applyReplacements(adapter, text) {
+  if (text.length > 0) {
+    const replacements = parseText(adapter, text);
     await adapter.apply(replacements);
     console.log('replacements applied!');
 
@@ -204,4 +208,16 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
   } else {
     console.log('no replacements found');
   }
+}
+
+// Main
+chrome.extension.sendMessage({}, function (response) {}); // notify background of ready state.
+
+const adapter = new LichessAdapater();
+chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
+  await applyReplacements(adapter, request.text);
+});
+
+chrome.storage.sync.get(["text"], async function(result) {
+  await applyReplacements(adapter, result.text);
 });
