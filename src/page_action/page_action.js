@@ -7,7 +7,8 @@ function sendText () {
 }
 
 function reset () {
-    chrome.storage.sync.set({text: ''}, function() {});
+  document.getElementById('text').value = '';
+  chrome.storage.sync.set({text: ''}, function() {});
 }
 
 chrome.storage.sync.get(["text"], function(result) {

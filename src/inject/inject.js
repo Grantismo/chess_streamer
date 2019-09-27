@@ -142,8 +142,16 @@ class PieceReplacer {
 function parseText (adapter, text) {
   const lines = text.split('\n');
   const replacements = [];
+  console.log('lines: ');
   for (let i = 0; i < lines.length; i++) {
-    const line = text.split(',');
+    if(lines[i].length > 0 && lines[i][0] === "#"){
+        console.log('skipping');
+        continue; // skip comments
+    }
+    const line = lines[i].split(',');
+
+    console.log('parsed :');
+    console.log(line);
     if (line.length === 2) {
       const match = adapter.newMatcher(line[0]);
       const image = line[1];
