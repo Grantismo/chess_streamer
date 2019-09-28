@@ -27,6 +27,18 @@ async function delay (ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function addClasses(innerHtml) {
+  const styleId = 'chess-streamer-classes';
+  const style = document.getElementById(styleId);
+  if(!style) {
+    style = document.createElement('style');
+    style.type = 'text/css';
+    style.id = styleId;
+    document.getElementsByTagName('head')[0].appendChild(style);
+  }
+  style.InnerHtml = innerHtml;
+}
+
 class PieceMatcher {
   constructor () {
     this.pieces = [];
@@ -98,12 +110,34 @@ class LichessMatcher extends PieceMatcher {
   }
 }
 
+class ChessDotComMatcher extends PieceMatcher {
+  matchColor (element, color) {
+    // backgroundImage of the form url('images.chesscomfiles.com/.../wr.png')
+    const bgImageColor = element.style.backgroundImage.slice(-8, -7); // w or b
+    return color.startsWith(bgImageColor);
+  }
+
+  matchPiece (element, piece) {
+    const bgImagePiece = element.style.backgroundImage.slice(-7, -6); //k, q, r, n, p, b
+    if (piece !== 'knight' && piece !== 'king') {
+      return piece.startsWith(bgImagePiece);
+
+    }
+    return  piece === 'king' ? bgImagePiece === 'k': bgImagePiece === 'n'; // knight
+  }
+
+  matchCoord (element, coord) {
+    // TODO using coord class
+    return false;
+  }
+}
+
 const coordRegex = /^[a-h][1-8]$/;
 function initMatcherFromLine (matcher, text, whiteOrientation) {
-  const parts = text.split(/\s+/); // "white knight f3"
+  const parts = text.split(/\s+/); // 'white knight f3'
   for (let i = 0; i < parts.length; i++) {
-    if (parts[i] === "us" || parts[i] === "them") {
-      matcher.addColor(((parts[i] === "us") === whiteOrientation) ? "white" : "black")
+    if (parts[i] === 'us' || parts[i] === 'them') {
+      matcher.addColor(((parts[i] === 'us') === whiteOrientation) ? 'white' : 'black')
     } 
     if (Object.values(Color).indexOf(parts[i]) > -1) {
       matcher.addColor(parts[i]);
@@ -144,7 +178,7 @@ function parseText (adapter, text) {
   const replacements = [];
   console.log('lines: ');
   for (let i = 0; i < lines.length; i++) {
-    if(lines[i].length > 0 && lines[i][0] === "#"){
+    if(lines[i].length > 0 && lines[i][0] === '#'){
         console.log('skipping');
         continue; // skip comments
     }
@@ -164,16 +198,19 @@ function parseText (adapter, text) {
   return replacements;
 }
 
-// Site Specific Adapters
-class LichessAdapater {
-  async init () {
-    console.log('init');
-    return waitWithTimeout(() => document.getElementsByTagName('piece').length > 0);
+class SiteAdapter {
+  constructor () {
+    this.matcherClass = null;
+  }
+
+  async apply (replacements) {
+    for (let i = 0; i < replacements.length; i++) {
+      await replacements[i].apply(this);
+    }
   }
 
   async findElements (matcher) {
-    const board = document.getElementsByTagName('cg-board')[0];
-    const pieces = board.getElementsByTagName('piece');
+    const pieces = this.findPieces();
     const matches = [];
     if (pieces.length === 0) {
       console.log('no pieces found');
@@ -186,21 +223,70 @@ class LichessAdapater {
     return matches;
   }
 
+  async init () {
+    throw new Error('no implementation.');
+  }
+
+  findPieces() {
+    throw new Error('no implementation.');
+  }
+
+  matcherClass() {
+    throw new Error('no implementation.');
+  }
+
+  whiteOrientation () {
+    throw new Error('no implementation.');
+  }
+
+  newMatcher (line) {
+    return initMatcherFromLine(new this.matcherClass, line, this.whiteOrientation());
+  }
+}
+
+// Site Specific Adapters
+class LichessAdapater extends SiteAdapter {
+  constructor () {
+    super();
+    this.matcherClass = LichessMatcher;
+  }
+
+  async init () {
+    console.log('init');
+    return waitWithTimeout(() => document.getElementsByTagName('piece').length > 0);
+  }
+
+  findPieces() {
+    const board = document.getElementsByTagName('cg-board')[0];
+    return board.getElementsByTagName('piece');
+  }
+
   whiteOrientation () {
     const wrapper = document.getElementsByTagName('cg-board')[0].closest('.cg-wrap');
     return wrapper.classList.contains('orientation-white');
   }
+}
 
-  async apply (replacements) {
-    for (let i = 0; i < replacements.length; i++) {
-      await replacements[i].apply(this);
-    }
+
+class ChessDotComAdapter extends SiteAdapter{
+  constructor () {
+    super();
+    this.matcherClass = ChessDotComMatcher;
   }
 
-  newMatcher (line) {
-    return initMatcherFromLine(new LichessMatcher(), line, this.whiteOrientation());
+  async init () {
+    console.log('init...');
+    return waitWithTimeout(() => document.getElementsByClassName('piece').length > 0);
   }
 
+  findPieces() {
+    const board = document.getElementById('game-board');
+    return board.getElementsByClassName('piece');
+  }
+
+  whiteOrientation () {
+    return document.getElementById('game-board').classList.contains('flipped');
+  }
 }
 
 async function applyReplacements(adapter, text) {
@@ -221,11 +307,11 @@ async function applyReplacements(adapter, text) {
 // Main
 chrome.extension.sendMessage({}, function (response) {}); // notify background of ready state.
 
-const adapter = new LichessAdapater();
+const adapter = new ChessDotComAdapter();
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
   await applyReplacements(adapter, request.text);
 });
 
-chrome.storage.sync.get(["text"], async function(result) {
+chrome.storage.sync.get(['text'], async function(result) {
   await applyReplacements(adapter, result.text);
 });
