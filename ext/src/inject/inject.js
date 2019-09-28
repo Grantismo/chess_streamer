@@ -29,14 +29,14 @@ async function delay (ms) {
 
 function addClasses(innerHtml) {
   const styleId = 'chess-streamer-classes';
-  const style = document.getElementById(styleId);
+  let style = document.getElementById(styleId);
   if(!style) {
     style = document.createElement('style');
     style.type = 'text/css';
     style.id = styleId;
     document.getElementsByTagName('head')[0].appendChild(style);
   }
-  style.InnerHtml = innerHtml;
+  style.innerHTML = innerHtml;
 }
 
 class PieceMatcher {
@@ -132,28 +132,12 @@ class ChessDotComMatcher extends PieceMatcher {
   }
 }
 
-const coordRegex = /^[a-h][1-8]$/;
-function initMatcherFromLine (matcher, text, whiteOrientation) {
-  const parts = text.split(/\s+/); // 'white knight f3'
-  for (let i = 0; i < parts.length; i++) {
-    if (parts[i] === 'us' || parts[i] === 'them') {
-      matcher.addColor(((parts[i] === 'us') === whiteOrientation) ? 'white' : 'black')
-    } 
-    if (Object.values(Color).indexOf(parts[i]) > -1) {
-      matcher.addColor(parts[i]);
-    } if (Object.values(Piece).indexOf(parts[i]) > -1) {
-      matcher.addPiece(parts[i]);
-    } else if (coordRegex.test(parts[i])) {
-      matcher.addCoord(parts[i]);
-    }
-  }
-  return matcher;
-}
 
 class PieceReplacer {
-  constructor (matcher, image) {
+  constructor (matcher, image, cssClass) {
     this.matcher = matcher;
     this.image = image;
+    this.cssClass = cssClass;
   }
 
   async apply (adapter) {
@@ -165,7 +149,7 @@ class PieceReplacer {
         return;
       }
       for (let i = 0; i < els.length; i++) {
-        els[i].style.backgroundImage = `url('${this.image}')`;
+        els[i].classList.add(this.cssClass);
       }
     } else {
       console.log('timeout waiting for init');
@@ -176,20 +160,16 @@ class PieceReplacer {
 function parseText (adapter, text) {
   const lines = text.split('\n');
   const replacements = [];
-  console.log('lines: ');
   for (let i = 0; i < lines.length; i++) {
     if(lines[i].length > 0 && lines[i][0] === '#'){
         console.log('skipping');
         continue; // skip comments
     }
     const line = lines[i].split(',');
-
-    console.log('parsed :');
-    console.log(line);
     if (line.length === 2) {
       const match = adapter.newMatcher(line[0]);
       const image = line[1];
-      const replacer = new PieceReplacer(match, image);
+      const replacer = new PieceReplacer(match, image, 'chess-streamer-r' + i);
       replacements.push(replacer);
     } else {
       console.log('unexpected line length');
@@ -204,6 +184,16 @@ class SiteAdapter {
   }
 
   async apply (replacements) {
+    let cssRules = '';
+    for (let i = 0; i < replacements.length; i++) {
+      cssRules += `
+        .${replacements[i].cssClass} {
+          background-image: url(${replacements[i].image}) !important;
+          background-repeat: no-repeat;
+        }`;
+    }
+    addClasses(cssRules);
+
     for (let i = 0; i < replacements.length; i++) {
       await replacements[i].apply(this);
     }
@@ -240,19 +230,33 @@ class SiteAdapter {
   }
 
   newMatcher (line) {
-    return initMatcherFromLine(new this.matcherClass, line, this.whiteOrientation());
+    const coordRegex = /^[a-h][1-8]$/;
+    const matcher = new this.matcherClass;
+    const parts = line.split(/\s+/); // 'white knight f3'
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i] === 'us' || parts[i] === 'them') {
+        matcher.addColor(((parts[i] === 'us') === this.whiteOrientation()) ? 'white' : 'black')
+      } 
+      if (Object.values(Color).indexOf(parts[i]) > -1) {
+        matcher.addColor(parts[i]);
+      } if (Object.values(Piece).indexOf(parts[i]) > -1) {
+        matcher.addPiece(parts[i]);
+      } else if (coordRegex.test(parts[i])) {
+        matcher.addCoord(parts[i]);
+      }
+    }
+    return matcher;
   }
 }
 
 // Site Specific Adapters
-class LichessAdapater extends SiteAdapter {
+class LichessAdapter extends SiteAdapter {
   constructor () {
     super();
     this.matcherClass = LichessMatcher;
   }
 
   async init () {
-    console.log('init');
     return waitWithTimeout(() => document.getElementsByTagName('piece').length > 0);
   }
 
@@ -275,7 +279,6 @@ class ChessDotComAdapter extends SiteAdapter{
   }
 
   async init () {
-    console.log('init...');
     return waitWithTimeout(() => document.getElementsByClassName('piece').length > 0);
   }
 
@@ -285,7 +288,7 @@ class ChessDotComAdapter extends SiteAdapter{
   }
 
   whiteOrientation () {
-    return document.getElementById('game-board').classList.contains('flipped');
+    return !document.getElementById('game-board').classList.contains('flipped');
   }
 }
 
@@ -307,7 +310,17 @@ async function applyReplacements(adapter, text) {
 // Main
 chrome.extension.sendMessage({}, function (response) {}); // notify background of ready state.
 
-const adapter = new ChessDotComAdapter();
+function getAdapter() {
+  const currentUrl = document.location.toString();
+  if(currentUrl.indexOf('chess.com') > -1) {
+    return new ChessDotComAdapter();
+  } else if (currentUrl.indexOf('lichess') > -1) {
+    return new LichessAdapter();
+  }
+  throw new Error('no adapter for this site.');
+}
+
+const adapter = getAdapter();
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
   await applyReplacements(adapter, request.text);
 });
