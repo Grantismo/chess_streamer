@@ -27,6 +27,14 @@ async function delay (ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function removeReplacementClass(el) {
+  for(let i = 0; i < el.classList.length; i++) {
+    if(el.classList[i].startsWith('chess-streamer')){
+      el.classList.remove(el.classList[i]);
+    }
+  }
+}
+
 function addClasses(innerHtml) {
   const styleId = 'chess-streamer-classes';
   let style = document.getElementById(styleId);
@@ -292,16 +300,29 @@ class ChessDotComAdapter extends SiteAdapter{
   }
 }
 
+
+let resizeListener = null;
 async function applyReplacements(adapter, text) {
   if (text.length > 0) {
+
+    // remove previous replacements;
+    if (resizeListener) {
+      window.removeEventListener('resize', resizeListener);
+    }
+    const pieces = await adapter.findPieces();
+    for(let i = 0; i < pieces.length; i++) {
+      removeReplacementClass(pieces[i]);
+    }
+
     const replacements = parseText(adapter, text);
     await adapter.apply(replacements);
     console.log('replacements applied!');
 
-    window.addEventListener('resize', async () => {
+    resizeListener = async () => {
       await delay(50); // causes flickering on resize, but if too low may not refresh.
       await adapter.apply(replacements);
-    });
+    }
+    window.addEventListener('resize', resizeListener);
   } else {
     console.log('no replacements found');
   }
