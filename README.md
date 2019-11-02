@@ -9,10 +9,14 @@ Currently supports:
 https://chrome.google.com/webstore/detail/chess-streamer/cmkheomdbjliabpcdchpglkgimmaeebc?hl=en&gl=US
 
 # Usage
+
+Demo video: https://www.youtube.com/watch?v=16L0N-eD8pI 
+
 1. Click on the horse icon at the top of chrome when on a chess website.
 1. Define piece replacement rules within the text area (details below).
 1. Click Apply. Pieces should be replaced based on your rules. The rules will always be applied when you visit any chess site until you reset or modify the rules.
 1. Click 'Reset' to undo your changes.
+
 
 # Replacement rules
 
