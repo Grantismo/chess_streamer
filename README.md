@@ -33,6 +33,9 @@ Match your color or the oponent's color: us, them (may require a page refresh).
 ## Example images:
 https://docs.google.com/document/d/1ENomG68cuYPbb2zQePWGmXUKZaGpnjiQfBeG5Ve6sOQ/edit?usp=sharing
 
+## blorppppp
+I stream sometimes on twitch: https://www.twitch.tv/blorppppp
+
 ## License
 [MIT][license-url]
 
