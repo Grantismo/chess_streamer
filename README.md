@@ -28,3 +28,9 @@ Match a specific type of piece: king, queen, rook, knight, bishop, pawn
 ## Match a color
 Match a specific color: black, white
 Match your color or the oponent's color: us, them (may require a page refresh).
+
+## License
+[MIT][license-url]
+
+[license-image]: http://img.shields.io/badge/license-MIT-blue.svg?style=flat
+[license-url]: LICENSE
