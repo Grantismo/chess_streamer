@@ -16,8 +16,8 @@ https://chrome.google.com/webstore/detail/chess-streamer/cmkheomdbjliabpcdchpglk
 
 # Replacement rules
 
-white king, https://cdn160.picsart.com/upscale-272578841007211.png?r1024x1024
-[match keywords (space separated)], [replacement image url]
+    white king, https://cdn160.picsart.com/upscale-272578841007211.png?r1024x1024
+    [match keywords (space separated)], [replacement image url]
 
 Multiple replacment rules can be applied by separating by a newline (hit enter).
 Use one or multiple matching keywords (separate by a space) to define a replacement match.
